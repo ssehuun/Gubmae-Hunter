@@ -1,9 +1,10 @@
 """SQLite 데이터베이스 접근 계층.
 
-STEP3 구현 내용
+STEP3/STEP5 구현 내용
 - listings 테이블 생성/업데이트
 - 크롤링 실행 이력(crawler_runs) 저장
 - TTL 기반 캐시 사용 가능 여부 판단
+- 검색 필터(구/아파트명/평형) 조회
 """
 
 from __future__ import annotations
@@ -138,6 +139,53 @@ def get_cached_listings(conn: sqlite3.Connection, limit: int = 100) -> list[dict
         (limit,),
     ).fetchall()
 
+    return [dict(row) for row in rows]
+
+
+def search_cached_listings(
+    conn: sqlite3.Connection,
+    *,
+    district: str | None = None,
+    apt_name: str | None = None,
+    min_area_m2: float | None = None,
+    max_area_m2: float | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """검색 필터를 적용해 캐시 매물을 조회한다.
+
+    가격 필터는 문자열 파싱이 필요하므로 서비스 레이어에서 처리한다.
+    """
+
+    conditions: list[str] = []
+    params: list[Any] = []
+
+    if district:
+        conditions.append("district = ?")
+        params.append(district)
+
+    if apt_name:
+        conditions.append("apt_name LIKE ?")
+        params.append(f"%{apt_name}%")
+
+    if min_area_m2 is not None:
+        conditions.append("area_m2 >= ?")
+        params.append(min_area_m2)
+
+    if max_area_m2 is not None:
+        conditions.append("area_m2 <= ?")
+        params.append(max_area_m2)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    sql = f"""
+        SELECT apt_name, district, area_m2, price_text, floor_info, title, detail_url, fetched_at
+        FROM listings
+        {where_clause}
+        ORDER BY datetime(fetched_at) DESC
+        LIMIT ?
+    """
+
+    params.append(limit)
+    rows = conn.execute(sql, params).fetchall()
     return [dict(row) for row in rows]
 
 

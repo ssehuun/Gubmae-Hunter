@@ -8,6 +8,7 @@
 - ✅ STEP2: Playwright 기반 네이버 부동산 크롤러 기본 구현
 - ✅ STEP3: SQLite 저장 + TTL 캐싱 구조
 - ✅ STEP4: 급매 탐지 로직(키워드/평균가 대비 할인/최저가)
+- ✅ STEP5: 검색 API(구/아파트명/가격/평형 필터)
 
 ## 프로젝트 구조
 
@@ -57,6 +58,25 @@ uvicorn main:app --reload
 - API 문서: <http://127.0.0.1:8000/docs>
 - 헬스체크: <http://127.0.0.1:8000/health>
 
+
+
+## STEP5 검색 API
+
+엔드포인트: `GET /api/listings`
+
+쿼리 파라미터:
+
+- `district`: 서울 구 이름 (예: `강남구`)
+- `apt_name`: 아파트명 부분 검색
+- `min_price_manwon`, `max_price_manwon`: 가격 범위(만원 단위)
+- `min_area_m2`, `max_area_m2`: 전용면적 범위(㎡)
+- `limit`: 최대 조회 건수(기본 100, 최대 1000)
+
+예시:
+
+```bash
+curl "http://127.0.0.1:8000/api/listings?district=송파구&min_price_manwon=150000&max_price_manwon=250000&min_area_m2=59&max_area_m2=85"
+```
 
 ## STEP4 급매 판단 기준
 
