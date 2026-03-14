@@ -7,6 +7,7 @@
 - ✅ STEP1: FastAPI 서버/프로젝트 구조/기본 웹 페이지
 - ✅ STEP2: Playwright 기반 네이버 부동산 크롤러 기본 구현
 - ✅ STEP3: SQLite 저장 + TTL 캐싱 구조
+- ✅ STEP4: 급매 탐지 로직(키워드/평균가 대비 할인/최저가)
 
 ## 프로젝트 구조
 
@@ -55,6 +56,23 @@ uvicorn main:app --reload
 - 웹 UI: <http://127.0.0.1:8000>
 - API 문서: <http://127.0.0.1:8000/docs>
 - 헬스체크: <http://127.0.0.1:8000/health>
+
+
+## STEP4 급매 판단 기준
+
+- 제목 키워드: `급매`, `특가`, `빠른매도`, `가격인하`
+- 동일 단지/동일 평형 평균가 대비 할인율 계산
+- 동일 단지/동일 평형 최저가 여부
+
+`GET /api/listings` 응답의 각 매물에는 다음 필드가 추가됩니다.
+
+- `price_manwon`
+- `avg_price_manwon`
+- `min_price_manwon`
+- `discount_rate`
+- `keyword_matched`
+- `is_lowest_price`
+- `is_quick_sale`
 
 ## STEP3 크롤러 + DB 저장 실행
 

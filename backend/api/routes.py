@@ -1,18 +1,27 @@
 """API 라우트 모음.
 
-STEP1에서는 서비스 연결 전, 기본 동작 확인용 라우트만 제공한다.
+STEP4에서는 DB 캐시 매물에 급매 분석 로직을 적용해 반환한다.
 """
 
+from __future__ import annotations
+
 from fastapi import APIRouter
+
+from backend.database.db import get_cached_listings, get_connection, init_db
+from backend.services.quick_sale import analyze_quick_sale
 
 router = APIRouter(tags=["listings"])
 
 
 @router.get("/listings")
-def get_listings() -> dict[str, list]:
-    """초기 응답 스키마.
+def get_listings(limit: int = 100) -> dict[str, list]:
+    """캐시된 매물을 조회하고 급매 분석 필드를 포함해 반환한다."""
 
-    STEP2 이후 실제 크롤링/DB 데이터 조회로 확장한다.
-    """
-
-    return {"items": []}
+    conn = get_connection()
+    try:
+        init_db(conn)
+        listings = get_cached_listings(conn, limit=limit)
+        analyzed = analyze_quick_sale(listings)
+        return {"items": analyzed}
+    finally:
+        conn.close()
