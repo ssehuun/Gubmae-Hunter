@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>서울 아파트 급매 탐지</title>
+    <link rel="stylesheet" href="/frontend/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>서울 아파트 급매 탐지 (STEP1)</h1>
+      <p class="description">
+        FastAPI + Playwright + SQLite 기반 서비스 초기 화면입니다.
+        STEP2부터 실제 데이터 수집/분석 기능이 순차적으로 추가됩니다.
+      </p>
+
+      <section class="search-box">
+        <h2>검색 조건 (예정)</h2>
+        <form id="search-form">
+          <label>
+            서울 구
+            <select name="district" disabled>
+              <option>강남구</option>
+            </select>
+          </label>
+          <label>
+            아파트명
+            <input type="text" placeholder="예: 래미안" disabled />
+          </label>
+          <label>
+            가격 범위
+            <input type="text" placeholder="예: 8억~15억" disabled />
+          </label>
+          <label>
+            전용면적
+            <input type="text" placeholder="예: 84" disabled />
+          </label>
+          <button type="submit" disabled>검색</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>API 연결 확인</h2>
+        <button id="load-button">기본 API 호출</button>
+        <pre id="result">아직 호출 전</pre>
+      </section>
+    </main>
+
+    <script src="/frontend/app.js"></script>
+  </body>
+</html>
