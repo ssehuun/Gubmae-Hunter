@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>서울 아파트 급매 탐지</title>
+    <link rel="stylesheet" href="/frontend/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>서울 아파트 급매 탐지</h1>
+      <p class="description">
+        서울 아파트 매매 매물을 검색하고, 급매(키워드/할인율/최저가) 여부를 확인할 수 있습니다.
+      </p>
+
+      <section class="search-box">
+        <h2>검색 조건</h2>
+        <form id="search-form">
+          <label>
+            서울 구
+            <input name="district" type="text" placeholder="예: 강남구" />
+          </label>
+          <label>
+            아파트명
+            <input name="apt_name" type="text" placeholder="예: 래미안" />
+          </label>
+          <label>
+            최소 가격 (만원)
+            <input name="min_price_manwon" type="number" min="0" placeholder="예: 150000" />
+          </label>
+          <label>
+            최대 가격 (만원)
+            <input name="max_price_manwon" type="number" min="0" placeholder="예: 250000" />
+          </label>
+          <label>
+            최소 전용면적 (㎡)
+            <input name="min_area_m2" type="number" min="0" step="0.1" placeholder="예: 59" />
+          </label>
+          <label>
+            최대 전용면적 (㎡)
+            <input name="max_area_m2" type="number" min="0" step="0.1" placeholder="예: 84" />
+          </label>
+          <label>
+            정렬
+            <select name="sort_by">
+              <option value="">기본순</option>
+              <option value="price_asc">가격 낮은순</option>
+              <option value="discount_desc">할인율 높은순</option>
+            </select>
+          </label>
+          <label>
+            최대 조회 건수
+            <input name="limit" type="number" min="1" max="1000" value="100" />
+          </label>
+          <div class="button-row">
+            <button type="submit">검색</button>
+            <button type="button" id="reset-button" class="secondary">초기화</button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <h2>검색 결과</h2>
+        <p id="status" class="status">검색 조건을 입력한 뒤 검색 버튼을 누르세요.</p>
+        <div class="table-wrap">
+          <table id="result-table">
+            <thead>
+              <tr>
+                <th>아파트명</th>
+                <th>구</th>
+                <th>전용면적</th>
+                <th>가격</th>
+                <th>층</th>
+                <th>급매 여부</th>
+                <th>할인율(%)</th>
+                <th>링크</th>
+              </tr>
+            </thead>
+            <tbody id="result-body">
+              <tr>
+                <td colspan="8" class="empty">데이터가 없습니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/frontend/app.js"></script>
+  </body>
+</html>
