@@ -8,41 +8,73 @@
   </head>
   <body>
     <main class="container">
-      <h1>서울 아파트 급매 탐지 (STEP1)</h1>
+      <h1>서울 아파트 급매 탐지</h1>
       <p class="description">
-        FastAPI + Playwright + SQLite 기반 서비스 초기 화면입니다.
-        STEP2부터 실제 데이터 수집/분석 기능이 순차적으로 추가됩니다.
+        서울 아파트 매매 매물을 검색하고, 급매(키워드/할인율/최저가) 여부를 확인할 수 있습니다.
       </p>
 
       <section class="search-box">
-        <h2>검색 조건 (예정)</h2>
+        <h2>검색 조건</h2>
         <form id="search-form">
           <label>
             서울 구
-            <select name="district" disabled>
-              <option>강남구</option>
-            </select>
+            <input name="district" type="text" placeholder="예: 강남구" />
           </label>
           <label>
             아파트명
-            <input type="text" placeholder="예: 래미안" disabled />
+            <input name="apt_name" type="text" placeholder="예: 래미안" />
           </label>
           <label>
-            가격 범위
-            <input type="text" placeholder="예: 8억~15억" disabled />
+            최소 가격 (만원)
+            <input name="min_price_manwon" type="number" min="0" placeholder="예: 150000" />
           </label>
           <label>
-            전용면적
-            <input type="text" placeholder="예: 84" disabled />
+            최대 가격 (만원)
+            <input name="max_price_manwon" type="number" min="0" placeholder="예: 250000" />
           </label>
-          <button type="submit" disabled>검색</button>
+          <label>
+            최소 전용면적 (㎡)
+            <input name="min_area_m2" type="number" min="0" step="0.1" placeholder="예: 59" />
+          </label>
+          <label>
+            최대 전용면적 (㎡)
+            <input name="max_area_m2" type="number" min="0" step="0.1" placeholder="예: 84" />
+          </label>
+          <label>
+            최대 조회 건수
+            <input name="limit" type="number" min="1" max="1000" value="100" />
+          </label>
+          <div class="button-row">
+            <button type="submit">검색</button>
+            <button type="button" id="reset-button" class="secondary">초기화</button>
+          </div>
         </form>
       </section>
 
       <section>
-        <h2>API 연결 확인</h2>
-        <button id="load-button">기본 API 호출</button>
-        <pre id="result">아직 호출 전</pre>
+        <h2>검색 결과</h2>
+        <p id="status" class="status">검색 조건을 입력한 뒤 검색 버튼을 누르세요.</p>
+        <div class="table-wrap">
+          <table id="result-table">
+            <thead>
+              <tr>
+                <th>아파트명</th>
+                <th>구</th>
+                <th>전용면적</th>
+                <th>가격</th>
+                <th>층</th>
+                <th>급매 여부</th>
+                <th>할인율(%)</th>
+                <th>링크</th>
+              </tr>
+            </thead>
+            <tbody id="result-body">
+              <tr>
+                <td colspan="8" class="empty">데이터가 없습니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
 
