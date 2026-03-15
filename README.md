@@ -133,6 +133,12 @@ curl "http://127.0.0.1:8000/api/listings?district=송파구&min_price_manwon=150
 python scripts/run_crawler.py --max-items 100 --output data/raw_listings.json
 ```
 
+또는 모듈 실행 방식(경로 이슈 회피):
+
+```bash
+python -m scripts.run_crawler --max-items 100 --output data/raw_listings.json
+```
+
 캐시 우선 실행(TTL 60분):
 
 ```bash
