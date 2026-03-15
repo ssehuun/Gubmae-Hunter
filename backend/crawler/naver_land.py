@@ -1,27 +1,36 @@
-"""네이버 부동산 Playwright 크롤러.
+"""네이버 부동산 API 기반 크롤러.
 
-STEP2 구현 목표
-- Playwright로 네이버 부동산(동적 페이지)에서 서울 아파트 매매 매물 정보를 수집
-- 추후 STEP3에서 DB 저장, STEP4에서 급매 분석 로직과 연결
-
-주의
-- 네이버 페이지 구조/정책 변경에 따라 셀렉터는 변동될 수 있다.
-- 로컬 실행 시 반드시 `python -m playwright install chromium` 선행 필요.
+STEP2 개선
+- Playwright 브라우저 자동화 대신 네이버 부동산 API 응답을 직접 호출해 수집한다.
+- 기본은 모바일 클러스터 목록 API(`articleList`)를 사용한다.
+- 필요 시 단지 번호(`complex_no`)를 넣으면 단지별 매물 API를 사용한다.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
-# 서울 지역 진입용 기본 URL (매매/아파트 필터는 UI 상태와 URL 파라미터에 따라 달라질 수 있음)
-DEFAULT_NAVER_LAND_URL = "https://new.land.naver.com/complexes"
+import httpx
+
+MOBILE_ARTICLE_LIST_API = "https://m.land.naver.com/cluster/ajax/articleList"
+COMPLEX_ARTICLE_LIST_API = "https://m.land.naver.com/complex/getComplexArticleList"
+NEW_LAND_COMPLEX_API = "https://new.land.naver.com/api/complexes/{complex_no}"
+
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://m.land.naver.com/",
+}
 
 
 @dataclass
 class Listing:
-    """크롤링으로 수집한 매물 표준 스키마."""
+    """수집 매물 표준 스키마."""
 
     apt_name: str
     district: str
@@ -33,104 +42,128 @@ class Listing:
 
 
 def _safe_float(value: str | None) -> float | None:
-    """문자열 숫자를 float으로 변환한다. 실패 시 None 반환."""
-
     if not value:
         return None
 
+    cleaned = value.replace("㎡", "").strip()
     try:
-        return float(value.replace("㎡", "").strip())
+        return float(cleaned)
     except ValueError:
         return None
 
 
+def _pick(item: dict[str, Any], *keys: str, default: str = "") -> str:
+    for key in keys:
+        value = item.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return default
+
+
+def _build_detail_url(item: dict[str, Any]) -> str:
+    article_no = _pick(item, "articleNo", "atclNo")
+    if article_no:
+        return f"https://new.land.naver.com/articles/{article_no}"
+    return ""
+
+
 def parse_article_json(raw_articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """네이버 부동산 articleList JSON 응답을 표준 매물 스키마로 정규화한다.
-
-    Args:
-        raw_articles: 네이버 부동산 API 응답의 articleList 배열
-
-    Returns:
-        표준화된 매물 딕셔너리 목록
-    """
+    """다양한 네이버 부동산 article 스키마를 표준 스키마로 정규화한다."""
 
     parsed: list[dict[str, Any]] = []
 
     for item in raw_articles:
         parsed_item = Listing(
-            apt_name=item.get("articleName", ""),
-            district=item.get("cortarName", ""),
-            area_m2=_safe_float(str(item.get("area1", "") or "")),
-            price_text=item.get("dealOrWarrantPrc", ""),
-            floor_info=item.get("floorInfo", ""),
-            title=item.get("articleFeatureDesc", ""),
-            detail_url=f"https://new.land.naver.com/articles/{item.get('articleNo', '')}",
+            apt_name=_pick(item, "articleName", "atclNm", "cpNm"),
+            district=_pick(item, "cortarName", "cortarNm", "dvsnNm"),
+            area_m2=_safe_float(_pick(item, "area1", "spc1")),
+            price_text=_pick(item, "dealOrWarrantPrc", "prc", "prcTxt"),
+            floor_info=_pick(item, "floorInfo", "flrInfo", "flr"),
+            title=_pick(item, "articleFeatureDesc", "atclFetrDesc", "tagList"),
+            detail_url=_build_detail_url(item),
         )
         parsed.append(asdict(parsed_item))
 
     return parsed
 
 
-def fetch_seoul_apartment_sales(max_items: int = 100, headless: bool = True) -> list[dict[str, Any]]:
-    """서울 아파트 매매 매물을 수집한다.
+def _extract_article_list(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """API 응답에서 article 배열을 추출한다."""
 
-    구현 전략
-    1) Playwright로 네이버 부동산 페이지 접속
-    2) XHR/Fetch 응답 중 articleList 데이터를 수집
-    3) 표준 스키마로 정규화 후 반환
+    for key in ("articleList", "list", "result"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
 
-    Args:
-        max_items: 최대 수집 매물 수
-        headless: 헤드리스 모드 여부
-    """
+    body = payload.get("body")
+    if isinstance(body, dict):
+        for key in ("articleList", "list", "result"):
+            value = body.get(key)
+            if isinstance(value, list):
+                return value
+
+    return []
+
+
+def _fetch_page(
+    client: httpx.Client,
+    *,
+    page: int,
+    cortar_no: str,
+    complex_no: str | None,
+) -> list[dict[str, Any]]:
+    """한 페이지를 API로 조회한다."""
+
+    if complex_no:
+        url = COMPLEX_ARTICLE_LIST_API
+        params = {
+            "hscpNo": complex_no,
+            "tradTpCd": "A1",  # 매매
+            "page": page,
+        }
+    else:
+        url = MOBILE_ARTICLE_LIST_API
+        params = {
+            "rletTpCd": "APT",
+            "tradTpCd": "A1",  # 매매
+            "cortarNo": cortar_no,
+            "page": page,
+        }
+
+    response = client.get(url, params=params, timeout=20.0)
+    response.raise_for_status()
+    payload = response.json()
+    return _extract_article_list(payload)
+
+
+def fetch_seoul_apartment_sales(
+    max_items: int = 100,
+    *,
+    cortar_no: str = "1168000000",  # 강남구 기본값
+    complex_no: str | None = None,
+    max_pages: int = 5,
+) -> list[dict[str, Any]]:
+    """서울 아파트 매매 매물을 API로 수집한다."""
 
     collected_articles: list[dict[str, Any]] = []
 
-    # Playwright는 런타임에만 import하여, 테스트 환경(미설치)에서도 파서 테스트가 가능하게 한다.
-    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-    from playwright.sync_api import sync_playwright
+    with httpx.Client(headers=DEFAULT_HEADERS, follow_redirects=True) as client:
+        for page in range(1, max_pages + 1):
+            articles = _fetch_page(
+                client,
+                page=page,
+                cortar_no=cortar_no,
+                complex_no=complex_no,
+            )
+            if not articles:
+                break
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=headless)
-        context = browser.new_context()
-        page = context.new_page()
-
-        def _on_response(response: Any) -> None:
-            # 네이버 부동산의 article list API 패턴
-            if "articles" not in response.url:
-                return
-            if response.request.resource_type not in {"xhr", "fetch"}:
-                return
-
-            try:
-                payload = response.json()
-            except Exception:
-                return
-
-            # 구조 예: {"articleList": [...]} 또는 {"body": {"articleList": [...]}}
-            article_list = payload.get("articleList")
-            if article_list is None and isinstance(payload.get("body"), dict):
-                article_list = payload["body"].get("articleList")
-
-            if isinstance(article_list, list):
-                collected_articles.extend(article_list)
-
-        page.on("response", _on_response)
-
-        try:
-            page.goto(DEFAULT_NAVER_LAND_URL, timeout=30_000)
-            # 초기 XHR 수집 대기
-            page.wait_for_timeout(5_000)
-        except PlaywrightTimeoutError:
-            # 타임아웃이 나더라도 이미 수집한 응답이 있다면 활용
-            pass
-        finally:
-            context.close()
-            browser.close()
+            collected_articles.extend(articles)
+            if len(collected_articles) >= max_items:
+                break
 
     normalized = parse_article_json(collected_articles)
 
-    # 기본 방어 로직: 빈 값 제거 + 중복 제거
     unique: dict[str, dict[str, Any]] = {}
     for row in normalized:
         key = row.get("detail_url") or json.dumps(row, ensure_ascii=False)

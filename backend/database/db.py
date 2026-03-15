@@ -141,6 +141,12 @@ def get_cached_listings(conn: sqlite3.Connection, limit: int = 100) -> list[dict
 
     return [dict(row) for row in rows]
 
+def has_cached_listings(conn: sqlite3.Connection) -> bool:
+    """캐시 매물 존재 여부를 반환한다."""
+
+    row = conn.execute("SELECT 1 FROM listings LIMIT 1").fetchone()
+    return row is not None
+
 
 def search_cached_listings(
     conn: sqlite3.Connection,

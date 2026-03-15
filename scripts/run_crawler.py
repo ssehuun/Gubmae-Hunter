@@ -25,6 +25,7 @@ from backend.crawler.naver_land import fetch_seoul_apartment_sales
 from backend.database.db import (
     get_cached_listings,
     get_connection,
+    has_cached_listings,
     init_db,
     is_cache_fresh,
     record_crawler_run,
@@ -42,11 +43,6 @@ def parse_args() -> argparse.Namespace:
         help="결과 JSON 저장 경로",
     )
     parser.add_argument(
-        "--headed",
-        action="store_true",
-        help="브라우저 UI를 보면서 실행 (디버깅용)",
-    )
-    parser.add_argument(
         "--use-cache",
         action="store_true",
         help="캐시가 신선하면 크롤링 대신 DB 캐시를 사용",
@@ -58,6 +54,20 @@ def parse_args() -> argparse.Namespace:
         help="캐시 신선도 기준(분)",
     )
     return parser.parse_args()
+
+
+def _raise_crawl_guidance(error: Exception) -> None:
+    """크롤링 실패 시 실행 가이드를 포함한 예외를 발생시킨다."""
+
+    message = (
+        "크롤링 실행에 실패했습니다.\n"
+        "원인: 네이버 부동산 API 접근 제한/네트워크 오류일 수 있습니다.\n"
+        "해결:\n"
+        "1) 네트워크 연결 상태 및 방화벽 설정 확인\n"
+        "2) 다시 실행: python scripts/run_crawler.py --max-items 100 --output data/raw_listings.json\n"
+        f"원본 에러: {error}"
+    )
+    raise RuntimeError(message) from error
 
 
 if __name__ == "__main__":
@@ -72,9 +82,19 @@ if __name__ == "__main__":
             listings = get_cached_listings(conn, limit=args.max_items)
             used_cache = True
         else:
-            listings = fetch_seoul_apartment_sales(max_items=args.max_items, headless=not args.headed)
-            save_listings(conn, listings)
-            record_crawler_run(conn, item_count=len(listings))
+            try:
+                listings = fetch_seoul_apartment_sales(max_items=args.max_items)
+                save_listings(conn, listings)
+                record_crawler_run(conn, item_count=len(listings))
+            except Exception as error:
+                # 브라우저 실행 실패 시 기존 캐시가 있으면 우선 활용한다.
+                if has_cached_listings(conn):
+                    listings = get_cached_listings(conn, limit=args.max_items)
+                    used_cache = True
+                    print("[경고] 크롤링 실패로 캐시 데이터를 대신 사용합니다.")
+                    print(f"[경고] 원본 에러: {error}")
+                else:
+                    _raise_crawl_guidance(error)
 
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(listings, ensure_ascii=False, indent=2), encoding="utf-8")

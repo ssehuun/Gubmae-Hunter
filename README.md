@@ -5,7 +5,7 @@
 ## 현재 구현 단계
 
 - ✅ STEP1: FastAPI 서버/프로젝트 구조/기본 웹 페이지
-- ✅ STEP2: Playwright 기반 네이버 부동산 크롤러 기본 구현
+- ✅ STEP2: 네이버 부동산 API 기반 크롤러 구현
 - ✅ STEP3: SQLite 저장 + TTL 캐싱 구조
 - ✅ STEP4: 급매 탐지 로직(키워드/평균가 대비 할인/최저가)
 - ✅ STEP5: 검색 API(구/아파트명/가격/평형 필터)
@@ -42,19 +42,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Playwright 브라우저 설치 (크롤링 시 필수)
-
-```bash
-python -m playwright install chromium
-```
-
-4. 서버 실행
+3. 서버 실행
 
 ```bash
 uvicorn main:app --reload
 ```
 
-5. 접속 URL
+4. 접속 URL
 
 - 웹 UI: <http://127.0.0.1:8000>
 - API 문서: <http://127.0.0.1:8000/docs>
@@ -139,6 +133,14 @@ python scripts/run_crawler.py --max-items 100 --output data/raw_listings.json
 python -m scripts.run_crawler --max-items 100 --output data/raw_listings.json
 ```
 
+
+문제 해결:
+
+- `ModuleNotFoundError: No module named backend` 발생 시
+  - `python -m scripts.run_crawler --max-items 100 --output data/raw_listings.json` 로 실행
+- API 호출 실패(네트워크/접근 제한) 시
+  - 네트워크 연결 및 방화벽/프록시 설정 확인 후 재시도
+
 캐시 우선 실행(TTL 60분):
 
 ```bash
@@ -147,7 +149,6 @@ python scripts/run_crawler.py --use-cache --ttl-minutes 60 --max-items 100
 
 옵션:
 
-- `--headed`: 브라우저를 화면에 표시하며 디버깅 실행
 - `--use-cache`: 최근 크롤링 결과가 신선하면 DB 캐시 조회
 - `--ttl-minutes`: 캐시 신선도 판단 기준(분)
 

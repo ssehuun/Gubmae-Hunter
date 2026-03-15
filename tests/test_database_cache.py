@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from backend.database.db import (
     get_cached_listings,
+    has_cached_listings,
     init_db,
     is_cache_fresh,
     record_crawler_run,
@@ -66,3 +67,27 @@ def test_is_cache_fresh_false_when_expired(sqlite_memory_connection) -> None:
     conn.commit()
 
     assert is_cache_fresh(conn, ttl_minutes=30) is False
+
+
+def test_has_cached_listings(sqlite_memory_connection) -> None:
+    conn = sqlite_memory_connection
+    init_db(conn)
+
+    assert has_cached_listings(conn) is False
+
+    save_listings(
+        conn,
+        [
+            {
+                "apt_name": "테스트아파트",
+                "district": "강동구",
+                "area_m2": 84.0,
+                "price_text": "12억",
+                "floor_info": "5/20",
+                "title": "일반매물",
+                "detail_url": "https://new.land.naver.com/articles/999",
+            }
+        ],
+    )
+
+    assert has_cached_listings(conn) is True
