@@ -1,4 +1,4 @@
-"""STEP5 검색 API 테스트."""
+"""STEP5/STEP7 검색 API 테스트."""
 
 from __future__ import annotations
 
@@ -31,10 +31,10 @@ def _seed_db(db_path) -> None:
                 {
                     "apt_name": "헬리오시티",
                     "district": "송파구",
-                    "area_m2": 84.0,
+                    "area_m2": 59.0,
                     "price_text": "20억",
                     "floor_info": "12/35",
-                    "title": "급매",
+                    "title": "일반매물",
                     "detail_url": "https://new.land.naver.com/articles/101",
                 },
                 {
@@ -69,8 +69,8 @@ def test_listings_search_filters(monkeypatch, tmp_path) -> None:
             "district": "송파구",
             "min_price_manwon": 190000,
             "max_price_manwon": 210000,
-            "min_area_m2": 80,
-            "max_area_m2": 90,
+            "min_area_m2": 50,
+            "max_area_m2": 70,
         },
     )
 
@@ -79,3 +79,27 @@ def test_listings_search_filters(monkeypatch, tmp_path) -> None:
     assert len(payload["items"]) == 1
     assert payload["items"][0]["apt_name"] == "헬리오시티"
     assert payload["items"][0]["district"] == "송파구"
+
+
+def test_listings_sorting(monkeypatch, tmp_path) -> None:
+    db_path = tmp_path / "test_step7.db"
+    _seed_db(db_path)
+
+    import backend.api.routes as routes
+
+    monkeypatch.setattr(routes, "get_connection", lambda: get_connection(db_path=db_path))
+
+    client = TestClient(app)
+
+    # 가격 낮은순: 16억 -> 20억 -> 23억
+    price_sorted = client.get("/api/listings", params={"sort_by": "price_asc"})
+    assert price_sorted.status_code == 200
+    items = price_sorted.json()["items"]
+    assert [row["price_manwon"] for row in items] == [160000, 200000, 230000]
+
+    # 할인율 높은순: 헬리오시티 16억(할인율 높음) 먼저
+    discount_sorted = client.get("/api/listings", params={"sort_by": "discount_desc"})
+    assert discount_sorted.status_code == 200
+    discount_items = discount_sorted.json()["items"]
+    assert discount_items[0]["apt_name"] == "헬리오시티"
+    assert discount_items[0]["price_manwon"] == 160000

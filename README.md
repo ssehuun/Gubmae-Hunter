@@ -10,6 +10,7 @@
 - ✅ STEP4: 급매 탐지 로직(키워드/평균가 대비 할인/최저가)
 - ✅ STEP5: 검색 API(구/아파트명/가격/평형 필터)
 - ✅ STEP6: 웹 UI 검색폼 + 결과 테이블
+- ✅ STEP7: 정렬 기능(가격 낮은순/할인율 높은순)
 
 ## 프로젝트 구조
 
@@ -62,6 +63,18 @@ uvicorn main:app --reload
 
 
 
+
+## STEP7 정렬 기능
+
+- 가격 낮은순: `sort_by=price_asc`
+- 할인율 높은순: `sort_by=discount_desc`
+
+예시:
+
+```bash
+curl "http://127.0.0.1:8000/api/listings?sort_by=price_asc"
+```
+
 ## STEP6 웹 UI
 
 - 검색 필터 입력: 구, 아파트명, 가격 범위(만원), 전용면적 범위, limit
@@ -88,6 +101,7 @@ uvicorn main:app --reload
 - `min_price_manwon`, `max_price_manwon`: 가격 범위(만원 단위)
 - `min_area_m2`, `max_area_m2`: 전용면적 범위(㎡)
 - `limit`: 최대 조회 건수(기본 100, 최대 1000)
+- `sort_by`: 정렬 기준 (`price_asc`, `discount_desc`)
 
 예시:
 
